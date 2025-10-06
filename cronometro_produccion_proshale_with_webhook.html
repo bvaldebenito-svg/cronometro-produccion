@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Cronómetro de Producción – PROSHALE</title>
+<style>
+  :root{
+    --panel: rgba(255,255,255,0.06);
+    --text:#f0f4f8;
+    --sub:#d1e3ff;
+    --accent:#60a5fa;
+    --ok:#22c55e;
+    --warn:#f59e0b;
+    --danger:#ef4444;
+    --chip:#0b326d;
+    --chipText:#e3f2ff;
+    --shadow: 0 10px 30px rgba(0,0,0,.35);
+    --radius:18px;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial;
+    background: linear-gradient(180deg, #5da7ff, #1e40af);
+    color: var(--text);
+  }
+  .wrap{ max-width:1200px;margin:24px auto;padding:16px;
+         display:grid;grid-template-columns: 1.2fr .8fr;gap:24px }
+  @media (max-width: 980px){ .wrap{ grid-template-columns: 1fr } }
+  .card{ background: var(--panel); border:1px solid rgba(255,255,255,.18);
+         border-radius:var(--radius); padding:18px; box-shadow:var(--shadow) }
+  h1{font-size: clamp(20px, 2.8vw, 28px); margin: 0 0 12px 0; letter-spacing:.3px}
+  .timer{ font-variant-numeric: tabular-nums; font-weight: 700; letter-spacing: .5px;
+          font-size: clamp(36px, 8vw, 64px); text-align:center; padding: 4px 0 10px 0 }
+  .status{ text-align:center;color:var(--sub); margin-bottom:16px }
+  .row{display:grid;grid-template-columns: 1fr 1fr; gap:12px}
+  @media (max-width: 520px){ .row{ grid-template-columns: 1fr } }
+  label{display:block;margin:6px 0 6px 4px;color:#e8f1ff;font-size:13px;font-weight:700}
+  input, select, textarea{
+    width:100%; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.22);
+    color:var(--text); border-radius:12px; padding:12px 12px; outline:none;
+  }
+  input:focus, select:focus, textarea:focus{ border-color: var(--accent); box-shadow:0 0 0 3px rgba(96,165,250,.3) }
+  textarea{ min-height:74px; resize: vertical }
+  .btns{display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; margin-top:8px}
+  button{
+    border:0; border-radius: 16px; padding:14px 14px; font-weight:800; font-size:16px;
+    cursor:pointer; transition:.15s transform ease, .15s filter ease;
+  }
+  button:active{ transform: translateY(1px); filter:brightness(.95) }
+  .b-start{ background: var(--ok); color:#06351a }
+  .b-pause{ background: var(--warn); color:#3a2302 }
+  .b-stop{ background: var(--danger); color:#3a0a0a }
+  .b-reset{ background: #1e3a8a; color:#dfe9ff }
+  .meta{ margin-top:10px}
+  .chips{ display:flex; gap:8px; flex-wrap: wrap; margin-top:6px }
+  .chip{ background: var(--chip); color: var(--chipText); border-radius: 999px; padding:8px 12px; font-size:13px; cursor:pointer }
+  .chip:hover{ filter:brightness(1.1) }
+  .tools{ display:flex; gap:10px; align-items:center; flex-wrap:wrap }
+  .tools button{ background: rgba(0,0,0,.25); color:#e5e7eb }
+  .history{ width:100%; border-collapse: collapse; margin-top:12px; font-size: 14px }
+  .history th, .history td{ border-bottom:1px solid rgba(255,255,255,.18); padding:10px 8px; text-align:left }
+  .history th{ color:#eef4ff; font-weight:700 }
+  .empty{ color:#eaf0ff; text-align:center; padding:20px; opacity:.8 }
+  .small{ font-size:12px; color:#e9f2ff }
+  .right{ text-align:right }
+  .headerBar{ display:flex; align-items:flex-start; justify-content:space-between; gap:10px; margin-bottom:8px; flex-direction:column }
+  .logo{ display:flex; flex-direction:column; align-items:flex-start; gap:8px }
+  .logo img{ height:56px }
+  .kbd{ font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; background:rgba(0,0,0,.25); border:1px solid rgba(255,255,255,.22); padding:2px 6px; border-radius:6px }
+  select option{ font-weight:700; color:#000 }
+  datalist option{ font-weight:700; color:#000 }
+  .inline{ display:flex; align-items:center; gap:12px; flex-wrap:wrap }
+  .hint{ font-size:12px; color:#dbeafe }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="card">
+      <div class="headerBar">
+        <div class="logo">
+          <img src="PROSHALE-Logo-Azul.png" alt="PROSHALE Logo"/>
+          <h1>Cronómetro de Producción</h1>
+        </div>
+        <div class="small">Funciona offline • Guarda en este equipo • Puede enviar a Sheets (Make)</div>
+      </div>
+
+      <div class="timer" id="timer">00:00:00.0</div>
+      <div class="status" id="status">Detenido</div>
+      <div class="btns">
+        <button class="b-start" id="start">Iniciar</button>
+        <button class="b-pause" id="pause">Pausa</button>
+        <button class="b-stop" id="stop">Detener &amp; Guardar</button>
+        <button class="b-reset" id="reset">Restaurar</button>
+      </div>
+
+      <div class="meta">
+        <div class="row">
+          <div>
+            <label>Operario</label>
+            <input id="operario" list="ops" placeholder="Ej.: Diego, Emanuel, Bruno" autocomplete="off" />
+            <datalist id="ops">
+              <option>Diego</option>
+              <option>Emanuel</option>
+              <option>Bruno</option>
+              <option>Guada</option>
+              <option>Martín</option>
+            </datalist>
+          </div>
+          <div>
+            <label>Máquina</label>
+            <input id="maquina" list="maq" placeholder="T01, T02, S01, TP01, VMC01" autocomplete="off" />
+            <datalist id="maq">
+              <option>T01</option><option>T02</option><option>S01</option><option>TP01</option><option>VMC01</option>
+            </datalist>
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <label>Proceso</label>
+            <select id="proceso">
+              <option value="Puesta a punto Torno">Puesta a punto Torno</option>
+              <option value="Corte">Corte</option>
+              <option value="Puesta a punto Fresado">Puesta a punto Fresado</option>
+              <option value="Torneado">Torneado</option>
+              <option value="Fresado">Fresado</option>
+              <option value="Marcado">Marcado</option>
+              <option value="Fosfatizado">Fosfatizado</option>
+              <option value="Rebabado">Rebabado</option>
+              <option value="Parada no programada">Parada no programada</option>
+            </select>
+          </div>
+          <div>
+            <label>Observaciones</label>
+            <input id="obs" placeholder="Notas, incidencias, etc." />
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <label>Plano</label>
+            <input id="plano" placeholder="Código/Nombre de plano" />
+          </div>
+          <div>
+            <label>OF</label>
+            <input id="of" placeholder="Orden de fabricación" />
+          </div>
+        </div>
+
+        <div class="inline">
+          <label class="hint">Cuando se guarda un registro, se puede enviar automáticamente a tu Google Sheet vía Make (webhook).</label>
+        </div>
+
+        <div>
+          <label>Máquinas usadas recientemente</label>
+          <div class="chips" id="chips"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="headerBar">
+        <h1>Historial</h1>
+        <div class="tools">
+          <button id="export">Exportar CSV</button>
+          <button id="copycsv">Copiar CSV</button>
+          <button id="clear">Borrar historial</button>
+        </div>
+      </div>
+      <table class="history" id="history">
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Inicio</th>
+            <th>Fin</th>
+            <th>Duración</th>
+            <th>Operario</th>
+            <th>Máquina</th>
+            <th>Proceso</th>
+            <th>Plano</th>
+            <th>OF</th>
+            <th>Obs.</th>
+            <th class="right">⋯</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+      <div class="empty" id="empty">No hay registros todavía.</div>
+      <div class="small">Atajos: <span class="kbd">Enter</span> inicia/detiene • <span class="kbd">Shift</span>+<span class="kbd">Enter</span> pausa/continúa</div>
+    </section>
+  </div>
+
+<script>
+(function(){
+  // ====== Configuración del envío a Make ======
+  const WEBHOOK_URL = "https://hook.us2.make.com/5dkivzorz0to53xx1bipyntwu4194h70"; // ← Pega aquí tu URL de Webhook de Make (ej.: https://hook.eu1.make.com/XXXXXXXX)
+  const ENVIAR_A_MAKE = true; // poner en false si no querés enviar
+
+  // --- Helpers de tiempo ---
+  const pad = (n, z=2)=>(''+n).padStart(z,'0');
+  const fmtDur = (ms)=>{
+    const tenths = Math.floor((ms % 1000) / 100);
+    const s = Math.floor(ms/1000) % 60;
+    const m = Math.floor(ms/60000) % 60;
+    const h = Math.floor(ms/3600000);
+    return `${pad(h)}:${pad(m)}:${pad(s)}.${tenths}`;
+  };
+  const nowLocalISO = (d)=>{
+    const tz = d.getTimezoneOffset()*60000;
+    return new Date(d - tz).toISOString().slice(0,19).replace('T',' ');
+  };
+
+  // --- Estado del cronómetro ---
+  let startAt = 0, elapsed = 0, ticking = false, paused = false, rafId = null;
+
+  const elTimer = document.getElementById('timer');
+  const elStatus = document.getElementById('status');
+  const btnStart = document.getElementById('start');
+  const btnPause = document.getElementById('pause');
+  const btnStop = document.getElementById('stop');
+  const btnReset = document.getElementById('reset');
+  const tbody = document.getElementById('tbody');
+  const empty = document.getElementById('empty');
+  const elChips = document.getElementById('chips');
+
+  const fields = {
+    operario: document.getElementById('operario'),
+    maquina: document.getElementById('maquina'),
+    proceso: document.getElementById('proceso'),
+    obs: document.getElementById('obs'),
+    plano: document.getElementById('plano'),
+    of: document.getElementById('of'),
+  };
+
+  // --- Storage ---
+  const KEY = 'proshale_timer_records_v3';
+  const KEYM = 'proshale_recent_machines_v1';
+  const records = JSON.parse(localStorage.getItem(KEY) || '[]');
+
+  function saveRecords(){ localStorage.setItem(KEY, JSON.stringify(records)); }
+
+  function addRecentMachine(m){
+    if(!m) return;
+    const rec = JSON.parse(localStorage.getItem(KEYM) || '[]');
+    const set = new Set(rec);
+    set.delete(m); // remove to move front
+    const arr = [m, ...set];
+    const sliced = arr.slice(0,8);
+    localStorage.setItem(KEYM, JSON.stringify(sliced));
+    renderChips();
+  }
+
+  function renderChips(){
+    const rec = JSON.parse(localStorage.getItem(KEYM) || '[]');
+    elChips.innerHTML = '';
+    rec.forEach(m=>{
+      const c = document.createElement('span');
+      c.className = 'chip';
+      c.textContent = m;
+      c.onclick = () => fields.maquina.value = m;
+      elChips.appendChild(c);
+    });
+  }
+
+  function renderTable(){
+    tbody.innerHTML='';
+    if(!records.length){ empty.style.display='block'; return; }
+    empty.style.display='none';
+    records.slice().reverse().forEach((r, idx)=>{
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${r.fecha}</td>
+        <td>${r.inicio}</td>
+        <td>${r.fin}</td>
+        <td>${r.duracion}</td>
+        <td>${r.operario||''}</td>
+        <td>${r.maquina||''}</td>
+        <td>${r.proceso||''}</td>
+        <td>${r.plano||''}</td>
+        <td>${r.of||''}</td>
+        <td>${r.obs||''}</td>
+        <td class="right"><button data-i="${records.length-1-idx}" style="background:rgba(0,0,0,.25);color:#e5e7eb;border-radius:10px;padding:6px 10px;cursor:pointer">Eliminar</button></td>`;
+      tbody.appendChild(tr);
+    });
+  }
+
+  // Botones eliminar en tabla
+  document.getElementById('history').addEventListener('click', (e)=>{
+    const b = e.target.closest('button[data-i]');
+    if(!b) return;
+    const i = Number(b.getAttribute('data-i'));
+    records.splice(i,1);
+    saveRecords();
+    renderTable();
+  });
+
+  // --- Cronómetro ---
+  function tick(){
+    elTimer.textContent = fmtDur(elapsed + (ticking ? Date.now() - startAt : 0));
+    rafId = requestAnimationFrame(tick);
+  }
+  function start(){
+    if(ticking) return;
+    ticking = true; paused = false;
+    startAt = Date.now();
+    elStatus.textContent = 'En marcha';
+  }
+  function pause(){
+    if(!ticking){ return; }
+    if(!paused){
+      elapsed += Date.now() - startAt;
+      ticking = false; paused = true;
+      elStatus.textContent = 'Pausado';
+    } else {
+      startAt = Date.now();
+      ticking = true; paused = false;
+      elStatus.textContent = 'En marcha';
+    }
+  }
+  function reset(){
+    ticking = false; paused = false; elapsed = 0;
+    elStatus.textContent = 'Detenido';
+  }
+  async function stopAndSave(){
+    const now = new Date();
+    const endMs = elapsed + (ticking ? Date.now() - startAt : 0);
+    const dur = fmtDur(endMs);
+    const fecha = now.toLocaleDateString();
+    const inicio = nowLocalISO(new Date(now - endMs)).split(' ')[1];
+    const fin = nowLocalISO(now).split(' ')[1];
+    const rec = {
+      fecha, inicio, fin, duracion: dur,
+      operario: fields.operario.value.trim(),
+      maquina: fields.maquina.value.trim(),
+      proceso: fields.proceso.value,
+      plano: fields.plano.value.trim(),
+      of: fields.of.value.trim(),
+      obs: fields.obs.value.trim()
+    };
+
+    records.push(rec); saveRecords(); renderTable();
+    addRecentMachine(rec.maquina);
+    reset();
+
+    if(WEBHOOK_URL){
+      try{
+        await fetch(WEBHOOK_URL, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(rec)
+        });
+        alert('Registro enviado a la base central.');
+      }catch(e){
+        console.warn('No se pudo enviar al webhook:', e);
+        alert('Guardado localmente. No se pudo enviar a la base (sin conexión o URL no configurada).');
+      }
+    }
+  }
+
+  // --- CSV ---
+  function toCSV(){
+    const cols = ['Fecha','Inicio','Fin','Duración','Operario','Máquina','Proceso','Plano','OF','Observaciones'];
+    const rows = records.map(r=>[r.fecha,r.inicio,r.fin,r.duracion,r.operario,r.maquina,r.proceso,r.plano,r.of,(r.obs||'').replace(/\n/g,' ')]);
+    const all = [cols, ...rows];
+    return all.map(row => row.map(cell => {
+      const c = (cell==null? '' : String(cell));
+      return /[",;\n]/.test(c) ? `"${c.replace(/"/g,'""')}"` : c;
+    }).join(';')).join('\n');
+  }
+  function downloadCSV(){
+    const csv = toCSV();
+    const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const d = new Date();
+    a.href = url;
+    a.download = `registros_produccion_${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}.csv`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+  async function copyCSV(){
+    try{
+      await navigator.clipboard.writeText(toCSV());
+      alert('CSV copiado al portapapeles.');
+    }catch(e){ alert('No se pudo copiar.'); }
+  }
+
+  // --- Eventos ---
+  btnStart.onclick = start;
+  btnPause.onclick = pause;
+  btnStop.onclick = stopAndSave;
+  btnReset.onclick = reset;
+  document.addEventListener('keydown', (e)=>{
+    if(e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); ticking ? stopAndSave() : start(); }
+    if(e.key === 'Enter' && e.shiftKey){ e.preventDefault(); pause(); }
+  });
+  document.getElementById('export').onclick = downloadCSV;
+  document.getElementById('copycsv').onclick = copyCSV;
+  document.getElementById('clear').onclick = ()=>{
+    if(confirm('¿Borrar todos los registros guardados en este equipo?')){
+      localStorage.setItem(KEY,'[]'); records.splice(0, records.length); renderTable();
+    }
+  };
+
+  // init
+  function renderChips(){
+    const rec = JSON.parse(localStorage.getItem('proshale_recent_machines_v1') || '[]');
+    elChips.innerHTML = '';
+    rec.forEach(m=>{
+      const c = document.createElement('span');
+      c.className = 'chip';
+      c.textContent = m;
+      c.onclick = () => fields.maquina.value = m;
+      elChips.appendChild(c);
+    });
+  }
+  renderChips();
+  (function tick(){ elTimer.textContent = fmtDur(elapsed + (ticking ? Date.now() - startAt : 0)); requestAnimationFrame(tick); })();
+  (function renderTableInit(){
+    if(!records.length){ empty.style.display='block'; return; }
+    empty.style.display='none';
+    records.slice().reverse().forEach((r, idx)=>{
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${r.fecha}</td>
+        <td>${r.inicio}</td>
+        <td>${r.fin}</td>
+        <td>${r.duracion}</td>
+        <td>${r.operario||''}</td>
+        <td>${r.maquina||''}</td>
+        <td>${r.proceso||''}</td>
+        <td>${r.plano||''}</td>
+        <td>${r.of||''}</td>
+        <td>${r.obs||''}</td>
+        <td class="right"><button data-i="${records.length-1-idx}" style="background:rgba(0,0,0,.25);color:#e5e7eb;border-radius:10px;padding:6px 10px;cursor:pointer">Eliminar</button></td>`;
+      tbody.appendChild(tr);
+    });
+  })();
+})();
+</script>
+</body>
+</html>
